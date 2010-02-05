@@ -5,34 +5,15 @@
 (def *env* (to-array-2d (repeat (:rows *dimension*) 
 				(repeat (:columns *dimension*) :dead))))
 
-(defn kill-cell [cell] 
+(defn kill-cell [cell]
   (aset *env* (:row cell) (:column cell) :dead))
 
 (defn resurrect-cell [cell]
   (aset *env* (:row cell) (:column cell) :alive))
 
-(def *alive-cell-rules* {0 kill-cell
-			 1 kill-cell
-			 2 resurrect-cell
-                         3 resurrect-cell
-			 4 kill-cell
-			 5 kill-cell
-			 6 kill-cell
-			 7 kill-cell
-			 8 kill-cell})
-
-(def *dead-cell-rules* {0 kill-cell
-			1 kill-cell
-			2 kill-cell
-			3 resurrect-cell
-			4 kill-cell
-			5 kill-cell
-			6 kill-cell
-			7 kill-cell
-			8 kill-cell})
-
-(def *rules* {:alive *alive-cell-rules*
-	      :dead  *dead-cell-rules*})
+(def *alive-cell-rules* {2 resurrect-cell 3 resurrect-cell})
+(def *dead-cell-rules*  {3 resurrect-cell})
+(def *rules*            {:alive *alive-cell-rules* :dead  *dead-cell-rules*})
 
 (defn valid [{:keys [row column status]}]
   (when-not (or (< row 0) 
@@ -40,7 +21,6 @@
 		(< column 0)
 		(>= column (:columns *dimension*)))
     {:row row :column column :status status}))
-
 
 (defn all-neighbors [{:keys [row column]}]
   (let [neighbors {:up         (valid {:row (dec row) :column column       :status (fn [] (aget *env* (dec row) column))       })
@@ -64,7 +44,7 @@
 	cell-status     (aget *env* (:row cell) (:column cell))
 	alive-neighbors (alive-neighbors neighbors)]
     ;(prn (format "cell-status=%s alive-neighbors=%s" cell-status alive-neighbors))
-    (((*rules* cell-status) alive-neighbors) cell)))
+    (((*rules* cell-status) alive-neighbors kill-cell) cell)))
 
 (defn show-env []
   (doseq [rows *env*] 
@@ -86,7 +66,6 @@
 	  (recur (inc column))))
       (recur (inc  row))))
   (show-env))
-
       
 (seed)
 (dotimes [x 100] (run))
