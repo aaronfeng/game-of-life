@@ -11,9 +11,13 @@
 (defn resurrect-cell [cell]
   (aset *env* (:row cell) (:column cell) :alive))
 
-(def *alive-cell-rules* {2 resurrect-cell 3 resurrect-cell})
-(def *dead-cell-rules*  {3 resurrect-cell})
-(def *rules*            {:alive *alive-cell-rules* :dead  *dead-cell-rules*})
+(defn dead-rule [neighbors] 
+  ({3 resurrect-cell} neighbors kill-cell))
+
+(defn alive-rule [neighbors]
+  ({2 resurrect-cell 3 resurrect-cell} neighbors kill-cell))
+
+(def *rules* {:alive alive-rule :dead  dead-rule})
 
 (defn valid [{:keys [row column status]}]
   (when-not (or (< row 0) 
@@ -44,7 +48,7 @@
 	cell-status     (aget *env* (:row cell) (:column cell))
 	alive-neighbors (alive-neighbors neighbors)]
     ;(prn (format "cell-status=%s alive-neighbors=%s" cell-status alive-neighbors))
-    (((*rules* cell-status) alive-neighbors kill-cell) cell)))
+    (((*rules* cell-status) alive-neighbors) cell)))
 
 (defn show-env []
   (doseq [rows *env*] 
