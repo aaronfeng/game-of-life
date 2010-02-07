@@ -1,15 +1,17 @@
 ;;; The Game of Life, also known simply as Life, is a cellular automaton.
 (ns com.leftrightfold.life)
 
-(def *dimension* {:rows 20 :columns 20})
-(def *env* (to-array-2d (repeat (:rows *dimension*) 
-				(repeat (:columns *dimension*) :dead))))
+(defn show-env [board]
+  (doseq [rows board] 
+    (doseq [item rows] (print (format "%-8s" (name item)))) 
+    (println))
+  (println))
 
-(defn kill-cell [cell]
-  (aset *env* (:row cell) (:column cell) :dead))
-
-(defn resurrect-cell [cell]
-  (aset *env* (:row cell) (:column cell) :alive))
+(defn kill-cell [board {:keys [row column]}]
+  (assoc board row (assoc (board row) column :dead)))
+  
+(defn resurrect-cell [board {:keys [row column]}]
+  (assoc board row (assoc (board row) column :alive)))
 
 (defn dead-rule [neighbors] 
   ({3 resurrect-cell} neighbors kill-cell))
@@ -19,22 +21,25 @@
 
 (def *rules* {:alive alive-rule :dead  dead-rule})
 
-(defn valid [{:keys [row column status]}]
+(defn valid [board {:keys [row column status]}]
   (when-not (or (< row 0) 
-		(>= row (:rows *dimension*)) 		
+		(>= row (count board)) 		
 		(< column 0)
-		(>= column (:columns *dimension*)))
+		(>= column (count (first board))))
     {:row row :column column :status status}))
 
-(defn all-neighbors [{:keys [row column]}]
-  (let [neighbors {:up         (valid {:row (dec row) :column column       :status (fn [] (aget *env* (dec row) column))       })
-		   :down       (valid {:row (inc row) :column column       :status (fn [] (aget *env* (inc row) column))       })
-		   :left       (valid {:row row       :column (dec column) :status (fn [] (aget *env* row (dec column)))       })
-		   :right      (valid {:row row       :column (inc column) :status (fn [] (aget *env* row (inc column)))       })
-		   :up-left    (valid {:row (dec row) :column (dec column) :status (fn [] (aget *env* (dec row) (dec column))) })
-		   :up-right   (valid {:row (dec row) :column (inc column) :status (fn [] (aget *env* (dec row) (inc column))) })
-		   :down-left  (valid {:row (inc row) :column (dec column) :status (fn [] (aget *env* (inc row) (dec column))) })
-		   :down-right (valid {:row (inc row) :column (inc column) :status (fn [] (aget *env* (inc row) (inc column))) })}]
+(defn nnth [array-2d row column]
+  (-> array-2d (nth row) (nth column)))
+
+(defn all-neighbors [board {:keys [row column]}]
+  (let [neighbors {:up         (valid board {:row (dec row) :column column       :status (fn [] (nnth board (dec row) column))       })
+		   :down       (valid board {:row (inc row) :column column       :status (fn [] (nnth board (inc row) column))       })
+		   :left       (valid board {:row row       :column (dec column) :status (fn [] (nnth board row (dec column)))       })
+		   :right      (valid board {:row row       :column (inc column) :status (fn [] (nnth board row (inc column)))       })
+		   :up-left    (valid board {:row (dec row) :column (dec column) :status (fn [] (nnth board (dec row) (dec column))) })
+		   :up-right   (valid board {:row (dec row) :column (inc column) :status (fn [] (nnth board (dec row) (inc column))) })
+		   :down-left  (valid board {:row (inc row) :column (dec column) :status (fn [] (nnth board (inc row) (dec column))) })
+		   :down-right (valid board {:row (inc row) :column (inc column) :status (fn [] (nnth board (inc row) (inc column))) })}]
     neighbors))
 
 (defn alive-neighbors [neighbors]
@@ -43,33 +48,36 @@
 		       (= ((:status v)) :dead))) 
 		 neighbors)))
 
-(defn check-neighbors [cell]
-  (let [neighbors       (all-neighbors cell)
-	cell-status     (aget *env* (:row cell) (:column cell))
+(defn check-neighbors [board {:keys [row column status] :as cell}]
+  (let [neighbors       (all-neighbors board cell)
 	alive-neighbors (alive-neighbors neighbors)]
-    ;(prn (format "cell-status=%s alive-neighbors=%s" cell-status alive-neighbors))
-    (((*rules* cell-status) alive-neighbors) cell)))
+    (((*rules* status) alive-neighbors) board cell)))
 
-(defn show-env []
-  (doseq [rows *env*] 
-    (doseq [item rows] (print (format "%-8s" (name item)))) 
-    (println))
-  (println))
+(defn run [board]
+  (loop [b board row 0]
+    (if (< row (count b))
+      (recur 
+       (loop [bb b column 0]
+	 (if (< column (count (first bb)))
+	   (recur (check-neighbors bb {:row row :column column :status (nnth bb row column)})
+		  (inc column))
+	   bb))
+       (inc  row))
+      b)))
 
-(defn seed []
-  (doseq [[row column] [[0 3] [1 3] [0 4] [1 4] [1 2] [1 3] [1 4] [1 5] [1 6]
-			[2 1] [2 2] [2 3] [3 4] [3 3]]]
-    (aset *env* row column :alive)))
+(defn seed [board]
+  (loop [b board [[row column] :as c] [[0 3] [1 3] [0 4] [1 4] [1 2] [1 3] [1 4] [1 5] [1 6]
+				       [2 1] [2 2] [2 3] [3 4] [3 3]]]
+    (if (nil? row)
+      b
+      (recur (assoc b row (assoc (b row) column :alive)) (rest c)))))
 
-(defn run []
-  (loop [row 0]
-    (when (< row (:rows *dimension*))
-      (loop [column 0]
-	(when (< column (:columns *dimension*))
-	  (check-neighbors {:row row :column column :status (aget *env* row column)})
-	  (recur (inc column))))
-      (recur (inc  row))))
-  (show-env))
-      
-(seed)
-(dotimes [x 100] (run))
+(comment
+  (def board (seed (vec (repeat 20 (vec (repeat 20 :dead))))))
+  ;;; this will only run one iteration. invoke run again on the 
+  ;;; output to execute another iteration.
+  (show-env (run board))
+
+  ;;; would like to do the following eventually
+  (show-env (take 100 (iterate run board)))
+)
