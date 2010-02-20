@@ -74,10 +74,6 @@
 
 (comment
   (def board (seed (vec (repeat 20 (vec (repeat 20 :dead))))))
-  ;;; this will only run one iteration. invoke run again on the 
-  ;;; output to execute another iteration.
-  (show-env (run board))
-
-  ;;; would like to do the following eventually
-  (show-env (take 100 (iterate run board)))
+  ;; run 100 iterations
+  (show-env (nth (iterate run board) 101))
 )
